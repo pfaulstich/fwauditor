@@ -128,7 +128,7 @@ sub new {
     my $def = shift;
     
     $self->{NAME}=$name;
-    $self->{CURRENT_AC};   # keep track of the current access control as we parse through the list
+    $self->{CURRENT_AC}=0;   # keep track of the current access control as we parse through the list
     $self->{LIST} = {};  
     #$self->{FULL_LIST} = [];  # a list of each access control line
     $self->handleAccessControl($def);
@@ -172,7 +172,7 @@ sub handleAccessControl {
             # we don't actually add the control to the list until now
             $self->{LIST}->{$def} = $self->{CURRENT_AC};
         } else {
-            die "unrecognized access-list command: $args";
+            die "unrecognized access-list command: $def";
         }
 
 }
