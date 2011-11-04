@@ -186,6 +186,8 @@ sub validate {
     $result = "" unless defined($result);
     $dnsName = "" unless defined($dnsName);
     $dnsIP = "" unless defined($dnsIP);
+    $hostName = "" unless defined($hostName);
+    $hostIP = "" unless defined($hostIP);
     $nonAuthoritative = "" unless defined($nonAuthoritative);
     $cantFind = "" unless defined($cantFind);
     $timedOut = "" unless defined($timedOut);
