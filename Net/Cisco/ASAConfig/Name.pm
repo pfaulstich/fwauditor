@@ -220,7 +220,7 @@ sub validate {
 
         # check that name matches DNS lookup - or is close
         if ( (lc($hostName) eq lc($name)) 
-          or (lc($hostName) eq lc("$name.llbean.com")) 
+          or (lc($hostName) eq lc("$name.sennovation.com")) 
           ) {
             # 100% match. okay! do nothing
             $validNameCount++;
