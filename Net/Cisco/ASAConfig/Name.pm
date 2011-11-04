@@ -182,15 +182,24 @@ sub validate {
     my $nonAuthoritative = ($result =~ /Non-authoritative/);
     my $cantFind = ($result =~ /can't find/);
     my $timedOut = ($result =~ /Request to .* timed-out/);
+    # handle possible undefined items
+    $result = "" unless defined($result);
+    $dnsName = "" unless defined($dnsName);
+    $dnsIP = "" unless defined($dnsIP);
+    $nonAuthoritative = "" unless defined($nonAuthoritative);
+    $cantFind = "" unless defined($cantFind);
+    $timedOut = "" unless defined($timedOut);
         
     # get a copy of hostName & name w/out special characters
     $scrubbedHostName = $hostName;
     $scrubbedName = $name;
 	if ($scrubbedHostName) {
 	    $scrubbedHostName =~ s/[^a-zA-Z0-9.]//g;  #remove all non-alphanumeric characters
+    	    $scrubbedHostName = "" unless defined($scrubbedHostName);
 	}
 	if ($scrubbedName) {
 	    $scrubbedName =~ s/[^a-zA-Z0-9.]//g;      #remove all non-alphanumeric characters
+   	    $scrubbedName = "" unless defined($scrubbedName);
 	}
         
     # sanity checks:
@@ -273,6 +282,8 @@ sub validate {
     return @warnings;
 
 }
+
+  
 
 
 
