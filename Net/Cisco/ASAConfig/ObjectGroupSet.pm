@@ -3,6 +3,9 @@ package Net::Cisco::ASAConfig::ObjectGroupSet;
 use 5.006;
 use strict;
 use warnings;
+# not sure this include is needed. TODO: remove and test
+use Net::Cisco::ASAConfig::ObjectGroup;
+
 
 =head1 NAME
 
@@ -107,5 +110,46 @@ See http://dev.perl.org/licenses/ for more information.
 
 
 =cut
+
+sub new {
+    # creates new FWObjectGroupList object, which contains all the object groups
+    # takes one argument: the name of the list 
+    my $class = shift;
+    my $self = {};
+    bless $self, $class;
+    
+    #parse out the rest of the line
+    my $name = shift;
+    
+    $self->{LIST}={};   # object group name -> object group
+    
+    return $self;
+}
+
+sub add {
+    my $self = shift;
+    my $objectGroup = shift;
+    
+    my $objectGroupName = $objectGroup->getName();
+    
+    $self->{LIST}->{$objectGroupName} = $objectGroup;   
+}
+
+sub notifyOfUse {
+    # notify an object group in the list that there is an access control that uses it
+    my $self = shift;
+    my $objectGroupName = shift;
+    my $accessControlName = shift;
+    if ($self->{LIST}->{$objectGroupName}) {
+        $self->{LIST}->{$objectGroupName}->setWhereUsed($accessControlName);
+    } else {
+        warn ("Attempted to setWhereUsed($accessControlName) to $objectGroupName, but $objectGroupName not in this FWObjectGroupList. Software debugging hint: check FWAccessControl.pm::parseAccessControl to make sure that all characters in this group name are matched when defining objectGroups.");
+    }
+}
+
+sub getList {
+    my $self = shift;
+    return $self->{LIST};
+}
 
 1; # End of Net::Cisco::ASAConfig::ObjectGroupSet

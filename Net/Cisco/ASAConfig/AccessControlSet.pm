@@ -115,10 +115,7 @@ sub new {
     # takes two argument: the name, and the remainder of the line after the name 
     # expecting for the second arg:
     #   - "remark <comment>"
-    #   - "extended permit object-group TCPUDP object-group DNS_LookUppers object-group DNSservers object-group DNSudp_tcp 
-    #   - "extended permit udp 10.100.110.0 255.255.255.0 object-group ntpGroup object-group TimeSyncSources object-group ntpGroup 
-    #   - "extended permit tcp object-group XtranetWebServers object-group NetegrityServers object-group NetegProts 
-    #   - "extended permit tcp host 10.100.110.16 object-group NetegrityServers object-group NetegProts 
+	#  need to fill in some innocuous examples
     my $class = shift;
     my $self = {};
     bless $self, $class;
@@ -152,7 +149,7 @@ sub handleAccessControl {
 
         if (! $self->{CURRENT_AC}) {
             # new access control
-            $self->{CURRENT_AC} = AccessControl->new($self->getName(), $def);
+            $self->{CURRENT_AC} = Net::Cisco::ASAConfig::AccessControl->new($self->getName(), $def);
         }
 
         elsif ($def =~ /^remark/) {
@@ -161,7 +158,7 @@ sub handleAccessControl {
             # otherwise, this is just another remark in the existing access control.
             if ($self->{CURRENT_AC}->getControl()) {
                 # new control
-                $self->{CURRENT_AC} = AccessControl->new($self->getName(), $def);
+                $self->{CURRENT_AC} = Net::Cisco::ASAConfig::AccessControl->new($self->getName(), $def);
             } else {
                 # just another remark
                 $self->{CURRENT_AC}->addInfo($def);

@@ -203,12 +203,12 @@ sub setNetworkObject {
 }
 
 sub getNetworkHostObjects {
-    my $self = shift;
+	my $self = shift;
     return @{$self->{NETWORK_OBJECTS_HOSTS}};
 }
 
 sub getNetworkNetworkObjects {
-    my $self = shift;
+	my $self = shift;
     return @{$self->{NETWORK_OBJECTS_NETWORKS}};
 }
 

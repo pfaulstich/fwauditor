@@ -165,23 +165,33 @@ sub getWhereUsed {
 sub validate {
     my $self=shift;
     my @warnings;
-    
-    my $name = $self->{NAME};
+	my $validNameCount;
+	my $validAliasCount;
+	my $hostName = "";
+	my $scrubbedHostName = "";
+	my $scrubbedName = "";
+	my $hostIP = "";
+
+	my $name = $self->{NAME};
     my $ip = $self->{IP};
     
     # look up the IP using nslookup & do a sanity check
     my $result = `nslookup $ip 2>&1`;  # would be good to do something safer than backticks, since $ip comes from a file
     my ($dnsName, $dnsIP) = ($result =~ /Server:\s+(\S+)\nAddress:\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
-    my ($hostName, $hostIP) = ($result =~ /Name:\s+(\S+)\nAddress:\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+    ($hostName, $hostIP) = ($result =~ /Name:\s+(\S+)\nAddress:\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
     my $nonAuthoritative = ($result =~ /Non-authoritative/);
     my $cantFind = ($result =~ /can't find/);
     my $timedOut = ($result =~ /Request to .* timed-out/);
         
     # get a copy of hostName & name w/out special characters
-    my $scrubbedHostName = $hostName;
-    my $scrubbedName = $name;
-    $scrubbedHostName =~ s/[^a-zA-Z0-9.]//g;  #remove all non-alphanumeric characters
-    $scrubbedName =~ s/[^a-zA-Z0-9.]//g;      #remove all non-alphanumeric characters
+    $scrubbedHostName = $hostName;
+    $scrubbedName = $name;
+	if ($scrubbedHostName) {
+	    $scrubbedHostName =~ s/[^a-zA-Z0-9.]//g;  #remove all non-alphanumeric characters
+	}
+	if ($scrubbedName) {
+	    $scrubbedName =~ s/[^a-zA-Z0-9.]//g;      #remove all non-alphanumeric characters
+	}
         
     # sanity checks:
     # check for ip not found
@@ -215,7 +225,11 @@ sub validate {
         } else {
             #okay, so we're not even close. Before giving up, check for aliases
             my $result = `nslookup $name 2>&1`; # BAD!!! Replace w/ argv or something safer!
+			$result = "" unless (defined($result));
             my ($aliasName, $aliasIP) = ($result =~ /Name:\s+(\S+)\nAddress:\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+			# initialize those if they are still undef
+			$aliasName = "" unless (defined($aliasName));
+			$aliasIP = "" unless (defined($aliasIP));
             if ($ip eq $aliasIP) {
                 # okay, this must be an alias.  do nothing
                 $validAliasCount++;
@@ -248,9 +262,11 @@ sub validate {
         }
     }
     # ping test
-    my $result = `ping -n 1 $ip`;
-    my ($ping_fail) = ($result =~ /Lost = 1 \(100% loss\)/);
+    my $pingResult = `ping -n 1 $ip`;
+    my ($ping_fail) = ($pingResult =~ /Lost = 1 \(100% loss\)/);
     if ($ping_fail) {
+		$ip = "" unless (defined($ip));
+		$hostName = "" unless (defined($hostName));
         push (@warnings, "IP/Name Validation", "$ip\t($hostName) failed to respond to ping");
     }
     

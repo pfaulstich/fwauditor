@@ -116,10 +116,7 @@ sub new {
     # takes two arguments: the name of the ACL, and the remainder of the line after the ACL name 
     # expecting for the second arg:
     #   - "remark <comment>"
-    #   - "extended permit object-group TCPUDP object-group DNS_LookUppers object-group DNSservers object-group DNSudp_tcp 
-    #   - "extended permit udp 10.100.110.0 255.255.255.0 object-group ntpGroup object-group TimeSyncSources object-group ntpGroup 
-    #   - "extended permit tcp object-group XtranetWebServers object-group NetegrityServers object-group NetegProts 
-    #   - "extended permit tcp host 10.100.110.16 object-group NetegrityServers object-group NetegProts 
+	#  need to fill in some innocuous examples
     my $class = shift;
     my $self = {};
     bless $self, $class;
