@@ -42,13 +42,13 @@ if (@ARGV == 1) {
 # set up the data structures
 #my %names;                  # name, ip
 #my %namesByIP;              # ip, name
-my $names = NameSet->new();                # all the name definitions, by name and IP
+my $names = Net::Cisco::ASAConfig::NameSet->new();                # all the name definitions, by name and IP
 my $validNameCount;         # total number of names that match dnslookup
 my $validAliasCount;        # total number of aliases that match dnslookup
 
 my $multiLineItem;          # any item that spans multiple lines
 #my @objectGroups;           # all the object-group definitions
-my $objectGroups = ObjectGroupSet->new();  # all the object-group definitions
+my $objectGroups = Net::Cisco::ASAConfig::ObjectGroupSet->new();  # all the object-group definitions
 
 # complex data structures
 # warningList is a hash of anonymous arrays: (A=>[a1,a2,...], B=>[b1,b2,...],...)
@@ -96,7 +96,7 @@ sub process {
     #name
     if ($line =~ /^name\s+(.*)/ ) {
         $multiLineItem = "";
-        my $item = Name->new($1);
+        my $item = Net::Cisco::ASAConfig::Name->new($1);
         my @warnings = $names->add($item);
         push @warnings, $item->validate();
         # step through the warnings and add to %warningList;
@@ -107,7 +107,7 @@ sub process {
     
     # object-group
     if ($line =~ /^object-group\s+(.*)/) {
-        $multiLineItem = ObjectGroup->new($1);
+        $multiLineItem = Net::Cisco::ASAConfig::ObjectGroup->new($1);
         #push @objectGroups, $multiLineItem;
         $objectGroups->add($multiLineItem);
     }
@@ -176,7 +176,7 @@ sub process {
         
         if ($newACL) {
             # create a new ACL
-            $multiLineItem = AccessControlSet->new($name, $def);
+            $multiLineItem = Net::Cisco::ASAConfig::AccessControlSet->new($name, $def);
         } else {
             # add to an existing one
             $multiLineItem->add($def);
