@@ -3,6 +3,7 @@ package Net::Cisco::ASAConfig::Name;
 use 5.006;
 use strict;
 use warnings;
+#use Net::Ping::External qw(ping);
 
 =head1 NAME
 
@@ -27,11 +28,6 @@ Perhaps a little code snippet.
 
     my $foo = Net::Cisco::ASAConfig::Name->new();
     ...
-
-=head1 EXPORT
-
-A list of functions that can be exported.  You can delete this section
-if you don't export anything, such as for a purely object-oriented module.
 
 =head1 SUBROUTINES/METHODS
 
@@ -160,125 +156,154 @@ sub getWhereUsed {
     my $self = shift;
     return @{$self->{WHEREUSED}};
 }
-    
+
+=head2 validate
+
+Runs a validation check on a name.  Only run this after a full firewall config has been loaded.
+
+Optional parameters (need to be in name=>value format)
+
+=over4
+
+-ping=>1  run ping check
+
+-nslookup=>1  run nslookup check
+
+=cut
+   
 
 sub validate {
     my $self=shift;
+    my %args = @_;  # get any arguments as name value pairs.
+    # supported arguments:
+    #  -noping=>1
+    #  -nonslookup=>1
     my @warnings;
-	my $validNameCount;
-	my $validAliasCount;
-	my $hostName = "";
-	my $scrubbedHostName = "";
-	my $scrubbedName = "";
-	my $hostIP = "";
+    my $validNameCount;
+    my $validAliasCount;
+    my $hostName = "";
+    my $scrubbedHostName = "";
+    my $scrubbedName = "";
+    my $hostIP = "";
 
-	my $name = $self->{NAME};
+    my $name = $self->{NAME};
     my $ip = $self->{IP};
     
     # look up the IP using nslookup & do a sanity check
-    my $result = `nslookup $ip 2>&1`;  # would be good to do something safer than backticks, since $ip comes from a file
-    my ($dnsName, $dnsIP) = ($result =~ /Server:\s+(\S+)\nAddress:\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
-    ($hostName, $hostIP) = ($result =~ /Name:\s+(\S+)\nAddress:\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
-    my $nonAuthoritative = ($result =~ /Non-authoritative/);
-    my $cantFind = ($result =~ /can't find/);
-    my $timedOut = ($result =~ /Request to .* timed-out/);
-    # handle possible undefined items
-    $result = "" unless defined($result);
-    $dnsName = "" unless defined($dnsName);
-    $dnsIP = "" unless defined($dnsIP);
-    $hostName = "" unless defined($hostName);
-    $hostIP = "" unless defined($hostIP);
-    $nonAuthoritative = "" unless defined($nonAuthoritative);
-    $cantFind = "" unless defined($cantFind);
-    $timedOut = "" unless defined($timedOut);
-        
-    # get a copy of hostName & name w/out special characters
-    $scrubbedHostName = $hostName;
-    $scrubbedName = $name;
-	if ($scrubbedHostName) {
-	    $scrubbedHostName =~ s/[^a-zA-Z0-9.]//g;  #remove all non-alphanumeric characters
-    	    $scrubbedHostName = "" unless defined($scrubbedHostName);
+    if ($args{-nslookup}) {
+	my $result = `nslookup $ip 2>&1`;  # would be good to do something safer than backticks, since $ip comes from a file
+	my ($dnsName, $dnsIP) = ($result =~ /Server:\s+(\S+)\nAddress:\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+	($hostName, $hostIP) = ($result =~ /Name:\s+(\S+)\nAddress:\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+	my $nonAuthoritative = ($result =~ /Non-authoritative/);
+	my $cantFind = ($result =~ /can't find/);
+	my $timedOut = ($result =~ /Request to .* timed-out/);
+	# handle possible undefined items
+	$result = "" unless defined($result);
+	$dnsName = "" unless defined($dnsName);
+	$dnsIP = "" unless defined($dnsIP);
+	$hostName = "" unless defined($hostName);
+	$hostIP = "" unless defined($hostIP);
+	$nonAuthoritative = "" unless defined($nonAuthoritative);
+	$cantFind = "" unless defined($cantFind);
+	$timedOut = "" unless defined($timedOut);
+	    
+	# get a copy of hostName & name w/out special characters
+	$scrubbedHostName = $hostName;
+	$scrubbedName = $name;
+	    if ($scrubbedHostName) {
+		$scrubbedHostName =~ s/[^a-zA-Z0-9.]//g;  #remove all non-alphanumeric characters
+		$scrubbedHostName = "" unless defined($scrubbedHostName);
+	    }
+	    if ($scrubbedName) {
+		$scrubbedName =~ s/[^a-zA-Z0-9.]//g;      #remove all non-alphanumeric characters
+		$scrubbedName = "" unless defined($scrubbedName);
+	    }
+	    
+	# sanity checks:
+	# check for ip not found
+	if ($cantFind or $timedOut or ($hostIP eq "")) {
+	    # warn, unless this obviously is a network (*.0)
+	    unless ($ip =~ /\.0$/) {
+		push (@warnings, "IP/Name Validation", "$ip\t[$name] was not found with dnslookup using $dnsName ($dnsIP)");
+	    }
+	} else {
+	    # sanity checks if we do find the IP
+	    # check for non-authoritative name server
+	    if ($nonAuthoritative) {
+		push (@warnings, "IP/Name Validation", "$ip\t[$name] was found from a non-authoritative DNS: $dnsName ($dnsIP)");
+	    }       
+    
+	    # check that name matches DNS lookup - or is close
+	    if ( (lc($hostName) eq lc($name)) 
+	      or (lc($hostName) eq lc("$name.sennovation.com")) 
+	      ) {
+		# 100% match. okay! do nothing
+		$validNameCount++;
+		my $no_op = 1; # this is just here as a breakpoint for debugging
+	    } elsif (   ($hostName =~ /$name/i) 
+	       or ($name =~ /$hostName/i)
+	       or ($scrubbedHostName =~ /$scrubbedName/i)
+	       or ($scrubbedName =~ /$scrubbedHostName/i)
+	       ) {
+		# hostname contains name or name contains hostname: might be okay.  Issue gentle warning
+		#push (@warnings, "IP/Name Validation", "$ip\t[$name] resolves in dns to $hostName ($hostIP) via DNS $dnsName ($dnsIP)");        
+		push (@warnings, "IP/Name Validation", "$ip\t[$name] resolves in dns to $hostName ($hostIP)");        
+	    } else {
+		#okay, so we're not even close. Before giving up, check for aliases
+		my $result = `nslookup $name 2>&1`; # BAD!!! Replace w/ argv or something safer!
+			    $result = "" unless (defined($result));
+		my ($aliasName, $aliasIP) = ($result =~ /Name:\s+(\S+)\nAddress:\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+			    # initialize those if they are still undef
+			    $aliasName = "" unless (defined($aliasName));
+			    $aliasIP = "" unless (defined($aliasIP));
+		if ($ip eq $aliasIP) {
+		    # okay, this must be an alias.  do nothing
+		    $validAliasCount++;
+		    my $no_op = 1; # this is just here as a breakpoint for debugging
+		} else {
+		    # Nothing worked. Do a "fuzzy compare" - also known as the "Levenstein distance" and report how far off we are
+		    # see 
+		    # http://www.merriampark.com/ld.htm
+		    # http://cpan.uwinnipeg.ca/htdocs/Text-Levenshtein/Text/Levenshtein.html
+		    # http://coding.derkeiler.com/Archive/Perl/perl.beginners/2004-03/1099.html
+		    # http://www.perlmonks.org/index.pl?node_id=162038
+		    # http://www.perlmonks.org/index.pl?node=Levenshtein%20distance%3A%20calculating%20similarity%20of%20strings
+		    # 
+		    # we'll report the smaller of these two differences:
+		    #   $hostName (from DNS), $name (from firewall rule)
+    #                my ($d1, $d2) = distance (lc($hostName), lc($name), lc("$name.llbean.com"));
+    #                my $distance = ($d1 < $d2) ? $d1 : $d2;
+		    # convert the distance to a percentage of the length of the reference value
+		    # eg four & foo have a distance of 2, % = 50%
+		    # eg four & bar have a distance of 3, % = 75%
+		    # eg four & bat have a distance of 4, % = 100%
+		    #remove the percentage.  Seems to be bogus.
+		    #my $percentage = sprintf("%.0f",$distance/length($hostName)*100); #calculate the distance, and round to an integer
+		    #push (@warnings, "Name DNS Lookup", "$percentage% likely name violation: $name ($ip) resolves to $hostName ($hostIP) via DNS $dnsName ($dnsIP) (Levenstein distance: $distance)");   
+		    #skip the distance.  not particularly useful
+		    #push (@warnings, "Name DNS Lookup", "Likely name violation: $name ($ip) resolves to $hostName ($hostIP) via DNS $dnsName ($dnsIP) (Levenstein distance: $distance)");        
+		    #push (@warnings, "IP/Name Validation", "$ip\t[$name] resolves in dns to $hostName ($hostIP) via DNS $dnsName ($dnsIP)");        
+		    push (@warnings, "IP/Name Validation", "$ip\t[$name] resolves in dns to $hostName ($hostIP)");        
+		}
+	    }
 	}
-	if ($scrubbedName) {
-	    $scrubbedName =~ s/[^a-zA-Z0-9.]//g;      #remove all non-alphanumeric characters
-   	    $scrubbedName = "" unless defined($scrubbedName);
-	}
-        
-    # sanity checks:
-    # check for ip not found
-    if ($cantFind or $timedOut or ($hostIP eq "")) {
-        # warn, unless this obviously is a network (*.0)
-        unless ($ip =~ /\.0$/) {
-            push (@warnings, "IP/Name Validation", "$ip\t[$name] was not found with dnslookup using $dnsName ($dnsIP)");
-        }
-    } else {
-        # sanity checks if we do find the IP
-        # check for non-authoritative name server
-        if ($nonAuthoritative) {
-            push (@warnings, "IP/Name Validation", "$ip\t[$name] was found from a non-authoritative DNS: $dnsName ($dnsIP)");
-        }       
-
-        # check that name matches DNS lookup - or is close
-        if ( (lc($hostName) eq lc($name)) 
-          or (lc($hostName) eq lc("$name.sennovation.com")) 
-          ) {
-            # 100% match. okay! do nothing
-            $validNameCount++;
-            my $no_op = 1; # this is just here as a breakpoint for debugging
-        } elsif (   ($hostName =~ /$name/i) 
-           or ($name =~ /$hostName/i)
-           or ($scrubbedHostName =~ /$scrubbedName/i)
-           or ($scrubbedName =~ /$scrubbedHostName/i)
-           ) {
-            # hostname contains name or name contains hostname: might be okay.  Issue gentle warning
-            #push (@warnings, "IP/Name Validation", "$ip\t[$name] resolves in dns to $hostName ($hostIP) via DNS $dnsName ($dnsIP)");        
-            push (@warnings, "IP/Name Validation", "$ip\t[$name] resolves in dns to $hostName ($hostIP)");        
-        } else {
-            #okay, so we're not even close. Before giving up, check for aliases
-            my $result = `nslookup $name 2>&1`; # BAD!!! Replace w/ argv or something safer!
-			$result = "" unless (defined($result));
-            my ($aliasName, $aliasIP) = ($result =~ /Name:\s+(\S+)\nAddress:\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
-			# initialize those if they are still undef
-			$aliasName = "" unless (defined($aliasName));
-			$aliasIP = "" unless (defined($aliasIP));
-            if ($ip eq $aliasIP) {
-                # okay, this must be an alias.  do nothing
-                $validAliasCount++;
-                my $no_op = 1; # this is just here as a breakpoint for debugging
-            } else {
-                # Nothing worked. Do a "fuzzy compare" - also known as the "Levenstein distance" and report how far off we are
-                # see 
-                # http://www.merriampark.com/ld.htm
-                # http://cpan.uwinnipeg.ca/htdocs/Text-Levenshtein/Text/Levenshtein.html
-                # http://coding.derkeiler.com/Archive/Perl/perl.beginners/2004-03/1099.html
-                # http://www.perlmonks.org/index.pl?node_id=162038
-                # http://www.perlmonks.org/index.pl?node=Levenshtein%20distance%3A%20calculating%20similarity%20of%20strings
-                # 
-                # we'll report the smaller of these two differences:
-                #   $hostName (from DNS), $name (from firewall rule)
-#                my ($d1, $d2) = distance (lc($hostName), lc($name), lc("$name.llbean.com"));
-#                my $distance = ($d1 < $d2) ? $d1 : $d2;
-                # convert the distance to a percentage of the length of the reference value
-                # eg four & foo have a distance of 2, % = 50%
-                # eg four & bar have a distance of 3, % = 75%
-                # eg four & bat have a distance of 4, % = 100%
-                #remove the percentage.  Seems to be bogus.
-                #my $percentage = sprintf("%.0f",$distance/length($hostName)*100); #calculate the distance, and round to an integer
-                #push (@warnings, "Name DNS Lookup", "$percentage% likely name violation: $name ($ip) resolves to $hostName ($hostIP) via DNS $dnsName ($dnsIP) (Levenstein distance: $distance)");   
-                #skip the distance.  not particularly useful
-                #push (@warnings, "Name DNS Lookup", "Likely name violation: $name ($ip) resolves to $hostName ($hostIP) via DNS $dnsName ($dnsIP) (Levenstein distance: $distance)");        
-                #push (@warnings, "IP/Name Validation", "$ip\t[$name] resolves in dns to $hostName ($hostIP) via DNS $dnsName ($dnsIP)");        
-                push (@warnings, "IP/Name Validation", "$ip\t[$name] resolves in dns to $hostName ($hostIP)");        
-            }
-        }
     }
+    
     # ping test
-    my $pingResult = `ping -n 1 $ip`;
-    my ($ping_fail) = ($pingResult =~ /Lost = 1 \(100% loss\)/);
-    if ($ping_fail) {
-		$ip = "" unless (defined($ip));
-		$hostName = "" unless (defined($hostName));
-        push (@warnings, "IP/Name Validation", "$ip\t($hostName) failed to respond to ping");
+    # linux and windows use different commands for ping
+    # alternatively, I could use a perl module, eg Net::Ping::External, but that would require users to load a non-standard module
+    if ($args{-ping}) {
+	my $pingcount ="-c"; # default to unix
+	if ($^O =~ /MSWin/) {
+	    $pingcount = "-n";
+	}
+	my $pingResult = `ping $pingcount 1 $ip`;
+	my ($ping_fail) = ($pingResult =~ /Lost = 1 \(100% loss\)/);
+	if ($ping_fail) {
+		    $ip = "" unless (defined($ip));
+		    $hostName = "" unless (defined($hostName));
+	    push (@warnings, "IP/Name Validation", "$ip\t($hostName) failed to respond to ping");
+	}
     }
     
     return @warnings;

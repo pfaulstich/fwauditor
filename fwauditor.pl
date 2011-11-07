@@ -25,7 +25,15 @@ $main::VERSION = 0.1;
 # handle cmd line arguments
 my $fwFile;
 my $outfile;
-my $result = GetOptions ("help|?" => sub {pod2usage(-verbose=>2)}) or pod2usage(-verbose=>0);
+# default options:
+my $ping = 1;
+my $nslookup = 1;
+
+my $result = GetOptions (
+                "help|?" => sub {pod2usage(-verbose=>2)},
+                "ping!" =>  \$ping,
+                "nslookup!" =>  \$nslookup
+             ) or pod2usage(-verbose=>0);
 if (@ARGV == 1) { 
     ($fwFile) = @ARGV;
     
@@ -68,6 +76,9 @@ checkWhereUsed();
 
 #reporting
 open (REPORT, ">$outfile") or die ("Cannot open $outfile for writing: $^E\n");
+# first print the program settings:
+print REPORT "Program Settings:\n";
+print REPORT "  Config File: $fwFile\n  NSLookup checks: " . ($nslookup ? "ON" : "OFF") . "\n  Ping checks: " . ($ping ? "ON" : "OFF") . "\n";
 foreach my $warnType (keys %warningList) {
     print REPORT "$warnType:\n";
     my $warnListRef = $warningList{$warnType};
@@ -98,7 +109,7 @@ sub process {
         $multiLineItem = "";
         my $item = Net::Cisco::ASAConfig::Name->new($1);
         my @warnings = $names->add($item);
-        push @warnings, $item->validate();
+        push @warnings, $item->validate(-ping=>$ping, -nslookup=>$nslookup);
         # step through the warnings and add to %warningList;
         for(my $w==0; $w < @warnings; $w++) {
             AddWarning($warnings[$w], $warnings[++$w]); # warnings contain two parts
