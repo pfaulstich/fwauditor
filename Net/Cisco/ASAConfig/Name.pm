@@ -176,8 +176,9 @@ sub validate {
     my $self=shift;
     my %args = @_;  # get any arguments as name value pairs.
     # supported arguments:
-    #  -noping=>1
-    #  -nonslookup=>1
+    #  -ping=>1
+    #  -nslookup=>1
+    #  -domain=>my.domain.com
     my @warnings;
     my $validNameCount;
     my $validAliasCount;
@@ -235,7 +236,7 @@ sub validate {
     
 	    # check that name matches DNS lookup - or is close
 	    if ( (lc($hostName) eq lc($name)) 
-	      or (lc($hostName) eq lc("$name.sennovation.com")) 
+	      or (lc($hostName) eq lc("$name." . $args{-domain})) 
 	      ) {
 		# 100% match. okay! do nothing
 		$validNameCount++;
